@@ -47,6 +47,10 @@ def train(env, policy, rollout_worker, evaluator,
           n_epochs, n_test_rollouts, n_cycles, n_batches, policy_save_interval,
           save_policies, policy_path=None, **kwargs):
 
+    latest_policy_path = os.path.join(logger.get_dir(), 'policy_latest.pkl')
+    best_policy_path = os.path.join(logger.get_dir(), 'policy_best.pkl')
+    periodic_policy_path = os.path.join(logger.get_dir(), 'policy_{}.pkl')
+
     saver = tf.train.Saver()
     model_name='model.ckpt'
     if policy_path is not None:
@@ -109,6 +113,13 @@ def train(env, policy, rollout_worker, evaluator,
             except Exception as e:
                 logger.info(e)
             print("saved policy to {}".format(pth))
+
+            evaluator.save_policy(best_policy_path)
+            evaluator.save_policy(latest_policy_path)
+        if rank == 0 and policy_save_interval > 0 and epoch % policy_save_interval == 0 and save_policies:
+            policy_path = periodic_policy_path.format(epoch)
+            logger.info('Saving periodic policy to {} ...'.format(policy_path))
+            evaluator.save_policy(policy_path)
 
         # make sure that different threads have different seeds
         local_uniform = np.random.uniform(size=(1,))
@@ -187,6 +198,7 @@ def launch(
         'with_forces': with_forces,
         'plot_forces': plot_forces,
         'T': params['T'],
+       # 'render': True
     }
 
     eval_params = {
